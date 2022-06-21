@@ -67,6 +67,12 @@ dele_dt %<>%
   mutate.( localidad = stri_replace_all_fixed(localidad, " HOSPITALET", "HOSPITALET")) %>% 
   as.data.table()
 table(dele_dt$localidad)
+
+#--- Select just the commercial people and the Staffing as business
+dele_com <- dele_dt %>%
+  filter.(puesto %like% "CONSULTOR") %>%
+  filter.(negocio == "STAFFING") %>%
+  as.data.table()
 #-- (END) --- Staffing Structure.
 
 
@@ -134,7 +140,39 @@ dat2021red <- dat2021 %>%
                                     vectorize_all = FALSE
                                     )
                           ) %>%
+               mutate.( provincia = stri_replace_all_fixed(
+                                    provincia,
+                                    c("LA COURUÑA", "VIZCAYA", "ALMERIA", "LEON", "CADIZ",  "CACERES", "GUIPUZCOA", "LERIDA"),
+                                    c("A CORUÑA", "BIZCAIA" , "ALMERÍA", "LEÓN", "CÁDIZ",  "CÁCERES", "GIPUZKOA", "LLEIDA"),
+                                    vectorize_all = FALSE
+                                    )
+               ) %>%
                as.data.table()
 toc(func.toc = toc.outmsg)
 rm(dat2021)
 #---------- END OF FILE ----------------
+
+#--- Case of Asturias...
+duns_asturias <- dat2021red %>%
+  filter.(provincia == "ASTURIAS") %>%
+  as.data.table()
+
+dele_asturias <- dele_com %>%
+  filter.(provincia == "ASTURIAS") %>%
+  mutate.(nomape = paste(nombre, apellidos, sep = "_")) %>%
+  as.data.table()
+
+duns_asturias %<>%
+  mutate.(nom_ape = rep(dele_asturias$nomape, length.out = nrow(duns_asturias)) ) %>%
+  separate.(nom_ape, into = c('nombre', 'apellidos'), sep = "_") %>%
+  left_join.(dele_asturias, by = c("nombre" = "nombre", "apellidos" = "apellidos") ) %>%
+  as.data.table()
+
+#-- Run for all provinces except MADRID and BARCELONA
+prov_val <- dat2021red %>%
+            select.(provincia) %>%
+            filter.(provincia != "") %>%
+            distinct.() %>%
+            pull.(provincia)
+          
+
