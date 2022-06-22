@@ -232,6 +232,7 @@ salesdistrict_gd <- salesdistrict %>%
   rename.(localidad_duns = localidad.x) %>%
   rename.(localidad_delegacion = localidad.y) %>%
   rename.(provincia = provincia.x) %>%
+  mutate.(es_investment = ifelse.(stri_detect_fixed(puesto, "INVESTMENT"), 1, 0)) %>%
   as.data.table()
   
 #--- Save file 
@@ -243,5 +244,6 @@ fwrite(
 )
 
 
-tini <- Sys.time()
+tend <- Sys.time(); tend - tini
+# Time difference of 1.08677 mins
 #----------- END OF FILE ---------
