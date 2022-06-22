@@ -69,10 +69,14 @@ dele_dt %<>%
 table(dele_dt$localidad)
 
 #--- Select just the commercial people and the Staffing as business
+# com_god <- c('RESPONSABLE COMERCIAL', 'RESPONSABLE GESTIÓN', 'DIRECTOR')
 dele_com <- dele_dt %>%
-  filter.(puesto %like% "CONSULTOR") %>%
+  filter.(puesto %like% "COMERCIAL" | puesto %like% "DIRECTOR") %>%
+  filter.(!(puesto %like% "TERRITORIAL" | puesto %like% "REGIONAL" | puesto %like% "DE DELEGACIÓN")) %>%
   filter.(negocio == "STAFFING") %>%
   as.data.table()
+table(dele_com$puesto)
+table(dele_dt$puesto)
 #-- (END) --- Staffing Structure.
 
 
