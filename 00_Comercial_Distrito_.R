@@ -3,6 +3,16 @@
 # Date:       2022-06-21
 # Purpose:    Assign Comercial people to a district and Company from Duns.
 # Input:      Duns file 2021 + FTE + Estructura Staffing.
+# Expanation:
+# 1. Get file with Sales people by delegation / province. 
+#    Filter the right Sales people: Director, Comercial responsible, etc.. (Sara's input)
+# 2. Get Duns and filter companies with more than 10  employees
+#    Change names of provinces to match the ones from the previous file.
+# 3. For each province in the file of sales people, 
+#    get the sales people of that province
+#    From Duns get also all the companies in that province and left_join the sales people.
+#    The sales people are associated repeteadly to  the companies.
+# 4. Clean some variables names of the output file and save.
 #----------------------------
 
 rm(list = ls())
