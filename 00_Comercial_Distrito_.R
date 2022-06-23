@@ -84,6 +84,7 @@ dele_com <- dele_dt %>%
   filter.( puesto %like% "COMERCIAL" | puesto %like% "DIRECTOR" | puesto %like% "DISTRICT" ) %>%
   filter.( !(puesto %like% "TERRITORIAL" | puesto %like% "REGIONAL" | puesto %like% "DE DELEGACIÓN") ) %>%
   filter.( negocio == "STAFFING" ) %>%
+  rename.( cp_delegacion = cp) %>%
   as.data.table()
 # table(dele_com$puesto)
 # table(dele_dt$puesto)
@@ -247,3 +248,20 @@ fwrite(
 tend <- Sys.time(); tend - tini
 # Time difference of 1.08677 mins
 #----------- END OF FILE ---------
+
+#-- Duns - Distritos en Pontevedra
+dat2021red[ provincia == "PONTEVEDRA"] %>% select.(distrito_postal) %>% distinct.() %>% as.data.table() 
+#-- 224 distritos.
+#-- Comerciales en Pontevedra
+dele_com[ provincia == "PONTEVEDRA" ]
+#-- 8 comerciales
+dele_com[ nombre == "ANA" & apellidos == "ALONSO NOGUEIRA" ]
+
+#-- Caso Madrid
+dele_com[ provincia == "MADRID" ] 
+#-- 79 Comerciales
+
+dele_com[ provincia == "MADRID" ] %>% select.(cp_delegacion) %>% distinct.()
+
+dat2021red[ provincia == "MADRID"] %>% select.(distrito_postal) %>% distinct.() %>% as.data.table() 
+#-- 286 distritos 
