@@ -1,0 +1,247 @@
+---
+title:    "Mapa de Códigos Postales"
+author:   "by [Santiago Mota](https://www.linkedin.com/in/santiagomota/)"
+mail:     "santiago_mota@yahoo.es"
+linkedin: "santiagomota"
+twitter:  "mota_santiago"
+github:   "santiagomota"
+date:     "`r Sys.Date()`"
+# logo:     "./figs/logo3.png"
+license:  by-nc-sa
+urlcolor: blue
+output:
+  html_document: 
+    theme:        cosmo # "default", "cerulean", "journal", "flatly", "readable", "spacelab", "united", "cosmo", "lumen", "paper", "sandstone", "simplex", "yeti"
+    highlight:    tango # "default", "tango", "pygments", "kate", "monochrome", "espresso", "zenburn", "haddock", "textmate"
+    toc:          true
+    toc_float:    true
+    code_folding: show
+    includes:
+      after_body: footer.html
+  word_document:  default
+  pdf_document:   default
+  epuRate::epurate:
+    toc:             TRUE
+    number_sections: FALSE
+    code_folding:    "show"
+  rmdformats::readthedown:
+    toc:          true      
+---
+
+
+# Cogidos postales
+
+```{r conflicted package, eval=FALSE}
+# https://conflicted.r-lib.org/
+
+# install.packages("devtools")
+# devtools::install_github("r-lib/conflicted")
+
+library(conflicted)
+```
+
+```{r}
+library(sf)
+library(leaflet)
+library(tmap)
+```
+
+
+
+```{r}
+library(maptools)
+
+leer.zip <- function(archivozip) {
+  zipdir <- tempfile()
+  dir.create(zipdir)
+
+  unzip(archivozip, exdir = zipdir)
+  
+  archivo <- list.files(zipdir)
+   
+  archivo <- archivo[grepl("shp", archivo) > 0]
+  archivo <- paste(zipdir, archivo, sep = "/")
+  # readShapeSpatial(archivo)
+  # rgdal::readOGR(archivo)
+  sf::st_read(archivo)
+} 
+```
+
+
+| Fichero              |
+|----------------------|
+| 42602-ALAVA.zip      |
+| 42603-GUIPUZCOA.zip  |
+| 42604-VIZCAYA.zip    |
+| 42605-NAVARRA.zip    |
+| 9082-GUADALAJARA.zip |
+| 9083-TOLEDO.zip      |
+| 9084-ALMERIA.zip     |
+| 9085-CANTABRIA.zip   |
+| 9086-LUGO.zip        |
+| 9087-GRANADA.zip     |
+| 9088-CASTELLON.zip   |
+| 9089-BURGOS.zip      |
+| 9090-CACERES.zip     |
+| 9091-CORDOBA.zip     |
+| 9092-TARRAGONA.zip   |
+| 9093-MURCIA.zip      |
+| 9094-MELILLA.zip     |
+| 9095-BARCELONA.zip   |
+| 9096-OURENSE.zip     |
+| 9097-SEVILLA.zip     |
+| 9098-SALAMANCA.zip   |
+| 9099-CEUTA.zip       |
+| 9100-CADIZ.zip       |
+| 9101-HUESCA.zip      |
+| 9102-CUENCA.zip      |
+| 9103-PALENCIA.zip    |
+| 9104-LA_RIOJA.zip    |
+| 9105-TERUEL.zip      |
+| 9106-ALICANTE.zip    |
+| 9107-ALBACETE.zip    |
+| 9108-MADRID.zip      |
+| 9109-A_CORUNA.zip    |
+| 9110-AVILA.zip       |
+| 9111-BADAJOZ.zip     |
+| 9112-HUELVA.zip      |
+| 9113-LAS_PALMAS.zip  |
+| 9114-ZARAGOZA.zip    |
+| 9115-GIRONA.zip      |
+| 9116-TENERIFE.zip    |
+| 9117-CIUDAD_REAL.zip |
+| 9118-VALLADOLID.zip  |
+| 9119-SEGOVIA.zip     |
+| 9120-LLEIDA.zip      |
+| 9121-BALEARES.zip    |
+| 9122-MALAGA.zip      |
+| 9123-ZAMORA.zip      |
+| 9124-SORIA.zip       |
+| 9125-ASTURIAS.zip    |
+| 9126-LEON.zip        |
+| 9127-PONTEVEDRA.zip  |
+| 9128-JAEN.zip        |
+| 9129-VALENCIA.zip    |
+
+
+## Madrid
+
+```{r lectura del fichero del código postal}
+temp <- '9108-MADRID.zip'
+
+# URL_CODIGO_POSTAL <- paste0('https://github.com/inigoflores/ds-codigos-postales/raw/master/archive/', temp)
+URL_CODIGO_POSTAL <- paste0('/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/ds-codigos-postales-master/archive/', temp)
+
+# tf <- tempfile(tmpdir = tempdir(), fileext = ".zip")
+# download.file(URL_CODIGO_POSTAL, tf)
+codigos_postales_provincia_shp <- leer.zip(URL_CODIGO_POSTAL)
+```
+
+```{r CRS}
+codigos_postales_provincia_shp <- st_transform(codigos_postales_provincia_shp, st_crs("EPSG:25830"))
+st_crs(codigos_postales_provincia_shp)$input
+```
+
+
+## Centroides
+
+```{r centroides codigos postales}
+sf::st_crs(codigos_postales_provincia_shp)$input
+# [1] "EPSG:25830"
+
+# https://r-spatial.org/r/2017/03/19/invalid.html
+# st_is_valid(codigos_postales_provincia_shp, reason = TRUE)
+
+codigos_postales_centroids <- sf::st_centroid(st_make_valid(codigos_postales_provincia_shp))
+codigos_postales_centroids <- st_transform(codigos_postales_centroids, st_crs("EPSG:4326"))
+
+sf::st_crs(codigos_postales_centroids)$input
+# [1] "EPSG:4326"
+
+codigos_postales_centroids2 <- st_coordinates(codigos_postales_centroids)
+
+codigos_postales_provincia_shp$longitud <- codigos_postales_centroids2[, 1]
+codigos_postales_provincia_shp$latitud  <- codigos_postales_centroids2[, 2]
+```
+
+```{r}
+to_save <- data.table(
+  cod_postal = codigos_postales_provincia_shp$COD_POSTAL,
+  longitud = codigos_postales_provincia_shp$longitud,
+  latitud = codigos_postales_provincia_shp$latitud
+)
+
+fwrite(to_save, file = "./output/kk.csv")
+```
+
+
+```{r leaflet map codigos_postales_provincia_shp, fig.align="center"}
+tmap_options(check.and.fix = TRUE)
+# Time consumming
+# tmap object
+mapa_cod_postales <- tm_shape(codigos_postales_provincia_shp) +
+     tm_polygons("COD_POSTAL", 
+                 border.col  = "blue",
+                 # palette     = col_spec_fun(15),
+                 alpha       = 0, 
+                 legend.show = FALSE,
+                 textNA      = "Without data",
+                 title       = "") +
+     tm_shape(codigos_postales_centroids) +
+     tm_dots(id = "COD_POSTAL")
+
+tmap_leaflet(mapa_cod_postales)
+```
+
+
+
+## Grabación de ficheros
+
+```{r}
+# provincia = '28'
+provincia = 'provincia'
+```
+
+```{r}
+readr::write_delim(codigos_postales_provincia_shp, 
+                   delim = ';', file = paste0("./output/codigos_postales_p", provincia, ".csv"))
+```
+
+
+```{r fichero gpkg}
+sf::st_write(codigos_postales_provincia_shp, paste0("./data/codigos_postales_p", provincia, ".gpkg"),  
+             driver = "GPKG", append = FALSE)
+```
+
+
+# Session Info
+
+Y por último, la información de la sesión
+
+```{r}
+sessionInfo()
+```
+
+```{r, eval=FALSE}
+Sys.getenv()
+```
+
+```{r, eval=FALSE}
+Sys.info()
+```
+
+
+# Links
+
+* [Mapa de códigos postales con R. Aunque el mapa es lo de menos](https://analisisydecision.es/mapa-de-codigos-postales-con-r-aunque-el-mapa-es-lo-de-menos/)
+* [ds-codigos-postales Iñigo Flores](https://github.com/inigoflores/ds-codigos-postales)
+
+
+
+# Licencias de uso
+
+**NO ESTÁ CLARO EL USO. REVISAR LA LICENCIA**
+
+* [Correos. bases de datos códigos postales](https://www.correos.es/ss/Satellite/site/aplicacion-1349169614869-1363189730359/detalle_app-sidioma=es_ES#)
+* [Artículo hablando de la licencia de los datos de Correos](https://analisisydecision.es/como-hacer-un-mapa-de-espana-por-codigos-postales-con-qgis/)
+* [IGN. Licencia de Uso](http://centrodedescargas.cnig.es/CentroDescargas/buscadorCatalogo.do?codFamilia=02122#)
