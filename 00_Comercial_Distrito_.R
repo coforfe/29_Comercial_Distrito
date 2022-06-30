@@ -47,9 +47,9 @@ tic()
 
 #----- Read several input needed files.
 #----- Staffing Structure.
-red_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Estructura/' 
+red_dir     <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Estructura/' 
 file_struct <- 'Red Staffing 2022.xlsx'
-filedirred <- paste(red_dir,file_struct, sep = "")
+filedirred  <- paste(red_dir,file_struct, sep = "")
 
 
 #--- Put all together all Sales people in each delegation + Postal Code.
