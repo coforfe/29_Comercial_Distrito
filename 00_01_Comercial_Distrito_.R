@@ -48,11 +48,15 @@ tic()
 
 #----- FTEs
 #-- Use official file with FTEs.
+#-- Bad: It does not include delegation district_code but I can get the right people. 
 rm(filedir)
-fte_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/FTEs/'
+fte_dir  <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/FTEs/'
 file_fte <- 'FTES comerciales.xlsx'
-filedir <- paste(fte_dir,file_fte, sep = "")
+filedir  <- paste(fte_dir,file_fte, sep = "")
 
 fte_dat <- read_excel(filedir, skip = 3 ) %>%
   clean_names() %>%
+  mutate.( is_investment = ifelse.( stri_detect_fixed(nombre_delegacion, "Investment"), 1, 0)) %>%
   as.data.table()
+
+
