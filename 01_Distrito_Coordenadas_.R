@@ -95,6 +95,8 @@ fwrite(
   sep = "|"
   )
 
+system("cp ./output/Provincia_Cod_Postal_Centroide.csv /Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/")
+
 tend <- Sys.time() ; tend - tini
 #----- END OF FILE ----------
 
