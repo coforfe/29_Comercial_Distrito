@@ -87,6 +87,9 @@ for (i in 1:length(nam_dele)) {
 dele_red <- dele_dt %>%
   select.(CECO, CP, PROVINCIA) %>%
   filter.(!is.na(CECO)) %>%
+  filter.(!is.na(PROVINCIA)) |> 
+  #-- Add a starting cero when the CECO has just 4 digits
+  mutate.(CECO = ifelse.(nchar(CECO) == 4, paste0("0", CECO) , CECO)) |> 
   distinct.() %>%
   as.data.table()
 
@@ -102,58 +105,67 @@ ftecp <- merge(
   mutate.(provincia = stri_trans_toupper(provincia)) |> 
   as.data.table()
 
-#-- check
-# Is there a salesperson assigned to two district_codes ?
-# - Yes, a group is assigned to three and some others to two.
-duplicases <- ftecp |> 
-  select.(nombre_comercial, codigo_postal) |> 
-  distinct.() %>%
-  mutate.(num_sales = n.(), .by = c(codigo_postal, nombre_comercial)) |> 
-  select.(nombre_comercial, num_sales) |> 
-  distinct.() |> 
-  arrange.(-num_sales) |> 
-  as.data.table()
-duplicases
-
-#- check number of salespeople by province
-ftecp |> 
-  select.(nombre_comercial, provincia) |> 
-  distinct.() |> 
-  count.(provincia) |> 
-  arrange.(-n) |> 
-  as.data.table()
-
-# provincia     n
-# <char> <int>
-#   1:      MADRID    36
-# 2:      MURCIA    18
-# 3:     SEVILLA    18
-# 4:       CÁDIZ    16
-# 5:     GRANADA    15
-# 6:      MÁLAGA    15
-# 7:     ALMERÍA    14
-
-# In ALMERÍA 13 investment people.
-# num_investment by provincia
-ftecp |> select.(provincia, es_investment) |>  mutate.(num_inves = sum(es_investment), .by = provincia) |> select.(provincia, num_inves) |>  distinct.() |> arrange.(-num_inves)
-
-# provincia num_inves
-# <chr>         <dbl>
-# 1 MÁLAGA           13
-# 2 MURCIA           13
-# 3 GRANADA          13
-# 4 SEVILLA          13
-# 5 CÁDIZ            13
-# 6 CORDOBA          13
-# 7 ALMERÍA          13
-# 8 CÁCERES          13
-# 9 BADAJOZ          13
-# 10 CUENCA           0
+# #-- check
+# # Is there a salesperson assigned to two district_codes ?
+# # - Yes, a group is assigned to three and some others to two.
+# duplicases <- ftecp |> 
+#   select.(nombre_comercial, codigo_postal_dele) |> 
+#   distinct.() %>%
+#   mutate.(num_sales = n.(), .by = c(codigo_postal_dele, nombre_comercial)) |> 
+#   select.(nombre_comercial, num_sales) |> 
+#   distinct.() |> 
+#   arrange.(-num_sales) |> 
+#   as.data.table()
+# duplicases
+# 
+# #- check number of salespeople by province
+# ftecp |> 
+#   select.(nombre_comercial, provincia) |> 
+#   distinct.() |> 
+#   count.(provincia) |> 
+#   arrange.(-n) |> 
+#   as.data.table()
+# 
+# # provincia     n
+# # <char> <int>
+# #   1:      MADRID    36
+# # 2:      MURCIA    18
+# # 3:     SEVILLA    18
+# # 4:       CÁDIZ    16
+# # 5:     GRANADA    15
+# # 6:      MÁLAGA    15
+# # 7:     ALMERÍA    14
+# 
+# # In ALMERÍA 13 investment people.
+# # num_investment by provincia
+# ftecp |> select.(provincia, es_investment) |>  mutate.(num_inves = sum(es_investment), .by = provincia) |> select.(provincia, num_inves) |>  distinct.() |> arrange.(-num_inves)
+# 
+# # provincia num_inves
+# # <chr>         <dbl>
+# # 1 MÁLAGA           13
+# # 2 MURCIA           13
+# # 3 GRANADA          13
+# # 4 SEVILLA          13
+# # 5 CÁDIZ            13
+# # 6 CORDOBA          13
+# # 7 ALMERÍA          13
+# # 8 CÁCERES          13
+# # 9 BADAJOZ          13
+# # 10 CUENCA           0
 
 #----- COMERCIAL - PROVINCIA - DISTRITO_POSTAL_DELE
 fteprovcp <- ftecp |> 
   select.(nombre_comercial, provincia, codigo_postal_dele) |> 
   distinct.() |> 
+  # Modify provinces to match coordinates files
+  mutate.(provincia = stri_replace_all_fixed(
+                       provincia,
+                       c("Á", "É", "Í", "Ó", "Ú", " ", "Ñ", "BIZKAIA", "GIPUZKOA", "ORENSE"),
+                       c("A", "E", "I", "O", "U", "_", "N", "VIZCAYA", "GUIPUZCOA" , "OURENSE"),
+                       vectorize_all = FALSE
+                      )
+         ) |> 
+  mutate.(provincia = stri_replace_all_fixed(provincia, c("PALMA_DE_MALLORCA"), c("BALEARES"))) |> 
   as.data.table()
 
 # There are salespeople in different provinces
@@ -161,4 +173,85 @@ fteprovcp <- ftecp |>
 # 267:     LOPEZ CIRCUJANO,ALEJANDRO     MÁLAGA              29007
 # 268:     LOPEZ CIRCUJANO,ALEJANDRO    BADAJOZ               6002
 
+
 #-------- GET PROVINCES - POSTAL CODES AVAILABLE and COORDINATES
+gis_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/'
+gis_file <- 'Provincia_Cod_Postal_Centroide.csv'
+gisdat <- fread(paste0(gis_dir,gis_file))
+
+#---------- PROCESSING ---------------
+#-- Let's solve a particular case "A_CORUNA"
+fte_tmp <- fteprovcp |>  
+  filter.(provincia == "ZARAGOZA") |> 
+  arrange.(codigo_postal_dele) |> 
+  as.data.table()
+
+provcod_tmp <- fteprovcp |> 
+  select.(provincia, codigo_postal_dele) |> 
+  filter.(provincia == "ZARAGOZA") |> 
+  distinct.() |> 
+  as.data.table()
+
+gis_tmp <- gisdat |> 
+  filter.(provincia == "ZARAGOZA") |> 
+  as.data.table()
+
+sales_tmp <- fte_tmp |> 
+  select.(nombre_comercial) |> 
+  distinct.() |> 
+  pull.(nombre_comercial)
+
+sales_rep <- rep(sales_tmp, length.out = nrow(gis_tmp))
+
+gis_tmp %<>%
+  mutate.( sales_rep = sales_rep) |> 
+  as.data.table()
+
+fte_end <- gis_tmp |> 
+  select.(-centroide_longitud, -centroide_latitud ) |> 
+  as.data.table()
+
+#------ GENERAL - NO DISTANCE OPTIMIZATION -------
+prov_val <- fteprovcp |> 
+  select.(provincia) |> 
+  distinct.() |> 
+  pull.(provincia)
+  
+salesdistrict <- data.table()
+for (i in 1:length(prov_val)) {
+    prov_tmp <- prov_val[i]
+    print(c(i,prov_tmp))
+    
+    fte_tmp <- fteprovcp |>  
+      filter.(provincia == prov_tmp) |> 
+      arrange.(codigo_postal_dele) |> 
+      as.data.table()
+    
+    provcod_tmp <- fteprovcp |> 
+      select.(provincia, codigo_postal_dele) |> 
+      filter.(provincia == prov_tmp) |> 
+      distinct.() |> 
+      as.data.table()
+    
+    gis_tmp <- gisdat |> 
+      filter.(provincia == prov_tmp) |> 
+      as.data.table()
+    
+    sales_tmp <- fte_tmp |> 
+      select.(nombre_comercial) |> 
+      distinct.() |> 
+      pull.(nombre_comercial)
+    
+    sales_rep <- rep(sales_tmp, length.out = nrow(gis_tmp))
+    
+    gis_tmp %<>%
+      mutate.( sales_rep = sales_rep) |> 
+      as.data.table()
+    
+    fte_end <- gis_tmp |> 
+      select.(-centroide_longitud, -centroide_latitud ) |> 
+      as.data.table()
+    
+    salesdistrict <- rbind(salesdistrict, fte_end)
+
+} #for (i in 1:length
