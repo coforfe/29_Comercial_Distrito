@@ -286,3 +286,12 @@ fwrite(
 tend <- Sys.time(); tend - tini
 #Time difference of 2.448268 secs
 #----------- END OF FILE ---------
+
+#------ To do
+# Create a separate file to work just with Madrid.
+# Include a variable for each sales people with their district_code_dele.
+# Calcula distances between each dele district and the rest.
+# Add columns with distances to the different district_deles.
+# ¿Sort by these distances?
+# ¿Change assignment of district to the sales based on these distances?.
+# ..... I do not know......  
