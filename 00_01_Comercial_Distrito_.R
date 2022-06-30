@@ -218,6 +218,7 @@ prov_val <- fteprovcp |>
   pull.(provincia)
   
 salesdistrict <- data.table()
+salesdistrictlonlat <- data.table()
 for (i in 1:length(prov_val)) {
     prov_tmp <- prov_val[i]
     print(c(i,prov_tmp))
@@ -253,5 +254,6 @@ for (i in 1:length(prov_val)) {
       as.data.table()
     
     salesdistrict <- rbind(salesdistrict, fte_end)
+    salesdistrictlonlat <- rbind(salesdistrictlonlat, gis_tmp)
 
 } #for (i in 1:length
