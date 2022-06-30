@@ -180,36 +180,43 @@ gis_file <- 'Provincia_Cod_Postal_Centroide.csv'
 gisdat <- fread(paste0(gis_dir,gis_file))
 
 #---------- PROCESSING ---------------
-#-- Let's solve a particular case "A_CORUNA"
-fte_tmp <- fteprovcp |>  
-  filter.(provincia == "ZARAGOZA") |> 
-  arrange.(codigo_postal_dele) |> 
-  as.data.table()
-
-provcod_tmp <- fteprovcp |> 
-  select.(provincia, codigo_postal_dele) |> 
-  filter.(provincia == "ZARAGOZA") |> 
-  distinct.() |> 
-  as.data.table()
-
-gis_tmp <- gisdat |> 
-  filter.(provincia == "ZARAGOZA") |> 
-  as.data.table()
-
-sales_tmp <- fte_tmp |> 
-  select.(nombre_comercial) |> 
-  distinct.() |> 
-  pull.(nombre_comercial)
-
-sales_rep <- rep(sales_tmp, length.out = nrow(gis_tmp))
-
-gis_tmp %<>%
-  mutate.( sales_rep = sales_rep) |> 
-  as.data.table()
-
-fte_end <- gis_tmp |> 
-  select.(-centroide_longitud, -centroide_latitud ) |> 
-  as.data.table()
+# #-- Let's solve a particular case "A_CORUNA"
+# fte_tmp <- fteprovcp |> 
+#   filter.(provincia == "ZARAGOZA") |>
+#   as.data.table() 
+# 
+# provcod_tmp <- fteprovcp |>
+#   select.(provincia, codigo_postal_dele) |>
+#   filter.(provincia == "ZARAGOZA") |>
+#   mutate.(es_sede = 1) |>
+#   select.(-provincia) |>
+#   mutate.(codigo_postal_dele = as.numeric(codigo_postal_dele)) |>
+#   distinct.() |>
+#   as.data.table()
+# 
+# gis_tmp <- gisdat |>
+#   filter.(provincia == "ZARAGOZA") |>
+#   as.data.table()
+# 
+# sales_tmp <- fte_tmp |>
+#   select.(nombre_comercial) |>
+#   distinct.() |>
+#   pull.(nombre_comercial)
+# 
+# sales_rep <- rep(sales_tmp, length.out = nrow(gis_tmp))
+# 
+# gis_tmp %<>%
+#   mutate.( sales_rep = sales_rep) |>
+#   as.data.table()
+# 
+# fte_gd <- merge(
+#   gis_tmp, provcod_tmp,
+#   by.x = c("cod_postal"), by.y = c("codigo_postal_dele"),
+#   all.x = TRUE,
+#   sort = FALSE
+# ) |>
+#   mutate.(es_sede = ifelse(is.na(es_sede), 0, es_sede)) |>
+#   as.data.table()
 
 #------ GENERAL - NO DISTANCE OPTIMIZATION -------
 prov_val <- fteprovcp |> 
@@ -218,19 +225,20 @@ prov_val <- fteprovcp |>
   pull.(provincia)
   
 salesdistrict <- data.table()
-salesdistrictlonlat <- data.table()
 for (i in 1:length(prov_val)) {
     prov_tmp <- prov_val[i]
     print(c(i,prov_tmp))
     
-    fte_tmp <- fteprovcp |>  
-      filter.(provincia == prov_tmp) |> 
-      arrange.(codigo_postal_dele) |> 
-      as.data.table()
+    fte_tmp <- fteprovcp |> 
+      filter.(provincia == prov_tmp) |>
+      as.data.table() 
     
     provcod_tmp <- fteprovcp |> 
       select.(provincia, codigo_postal_dele) |> 
       filter.(provincia == prov_tmp) |> 
+      mutate.(es_sede = 1) |> 
+      select.(-provincia) |> 
+      mutate.(codigo_postal_dele = as.numeric(codigo_postal_dele)) |> 
       distinct.() |> 
       as.data.table()
     
@@ -249,11 +257,32 @@ for (i in 1:length(prov_val)) {
       mutate.( sales_rep = sales_rep) |> 
       as.data.table()
     
-    fte_end <- gis_tmp |> 
-      select.(-centroide_longitud, -centroide_latitud ) |> 
+    fte_gd <- merge(
+      gis_tmp, provcod_tmp,
+      by.x = c("cod_postal"), by.y = c("codigo_postal_dele"),
+      all.x = TRUE,
+      sort = FALSE
+    ) |> 
+      mutate.(es_sede = ifelse(is.na(es_sede), 0, es_sede)) |> 
       as.data.table()
     
-    salesdistrict <- rbind(salesdistrict, fte_end)
-    salesdistrictlonlat <- rbind(salesdistrictlonlat, gis_tmp)
+    salesdistrict <- rbind(salesdistrict, fte_gd)
 
 } #for (i in 1:length
+
+salesdistrict %<>%
+  rename.(nombre_comercial = sales_rep) |> 
+  relocate.(nombre_comercial, .after = provincia) |> 
+  as.data.table()
+
+#--- Save file 
+fwrite(
+  salesdistrict,
+  file = "./output/Comercial_Distrito_noOptim_.csv",
+  sep = "|",
+  encoding = "UTF-8"
+)
+
+tend <- Sys.time(); tend - tini
+#Time difference of 2.448268 secs
+#----------- END OF FILE ---------
