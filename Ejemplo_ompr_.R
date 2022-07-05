@@ -58,9 +58,12 @@ model <- MIPModel() %>%
 model
 
 
+library(tictoc)
 library(ompr.roi)
 library(ROI.plugin.glpk)
+tic()
 result <- solve_model(model, with_ROI(solver = "glpk", verbose = TRUE))
+toc(func.toc = toc.outmsg)
 
 suppressPackageStartupMessages(library(dplyr))
 matching <- result %>% 
@@ -71,7 +74,9 @@ matching <- result %>%
 plot_assignment <- matching %>% 
   inner_join(customer_locations, by = c("i" = "id")) %>% 
   inner_join(warehouse_locations, by = c("j" = "id"))
+
 customer_count <- matching %>% group_by(j) %>% summarise(n = n()) %>% rename(id = j)
+
 plot_warehouses <- warehouse_locations %>% 
   mutate(costs = fixedcost) %>% 
   inner_join(customer_count, by = "id") %>% 
