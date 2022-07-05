@@ -154,8 +154,9 @@ ftecp <- merge(
 # # 10 CUENCA           0
 
 #----- COMERCIAL - PROVINCIA - DISTRITO_POSTAL_DELE
+library(abbreviate)
 fteprovcp <- ftecp |> 
-  select.(nombre_comercial, provincia, codigo_postal_dele) |> 
+  select.(nombre_comercial, provincia, codigo_postal_dele, puesto) |> 
   distinct.() |> 
   # Modify provinces to match coordinates files
   mutate.(provincia = stri_replace_all_fixed(
@@ -166,6 +167,9 @@ fteprovcp <- ftecp |>
                       )
          ) |> 
   mutate.(provincia = stri_replace_all_fixed(provincia, c("PALMA_DE_MALLORCA"), c("BALEARES"))) |> 
+  mutate.(nombre_abb = abbreviate_text(nombre_comercial)) |> 
+  select.(-nombre_comercial) |> 
+  arrange.(provincia) |> 
   as.data.table()
 
 # There are salespeople in different provinces
@@ -173,6 +177,13 @@ fteprovcp <- ftecp |>
 # 267:     LOPEZ CIRCUJANO,ALEJANDRO     MÁLAGA              29007
 # 268:     LOPEZ CIRCUJANO,ALEJANDRO    BADAJOZ               6002
 
+#--- Save intermediate file - Sales people and province and postal code delegation.
+fwrite(
+         fteprovcp, 
+         file = "./output/SalesPeople_Province_District_Delegation_Position.csv",
+         encoding = "UTF-8",
+         sep = "|"
+      )
 
 #-------- GET PROVINCES - POSTAL CODES AVAILABLE and COORDINATES
 gis_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/'
