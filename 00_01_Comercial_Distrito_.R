@@ -58,6 +58,9 @@ fte_dat <- read_excel(filedir, skip = 3 ) %>%
   clean_names() %>%
   # Remove cases where nombre_delegacion is "ONSITE".
   filter.( !(nombre_delegacion %like% "ONSITE")) |> 
+  # Remove cases where sales people is not active...
+  filter.( situacion_actual == "ACTIVO") |> 
+  filter.( is.na(excedencia) ) |> 
   mutate.( es_investment = ifelse.( stri_detect_fixed(nombre_delegacion, "Investment"), 1, 0)) %>%
   as.data.table()
 
@@ -186,9 +189,89 @@ fwrite(
       )
 
 #-------- GET PROVINCES - POSTAL CODES AVAILABLE and COORDINATES
-gis_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/'
+gis_dir  <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Povincias_distritos_Gis/'
 gis_file <- 'Provincia_Cod_Postal_Centroide.csv'
-gisdat <- fread(paste0(gis_dir,gis_file))
+gistmp   <- fread(paste0(gis_dir,gis_file)) |> 
+            # There are repeated cod_postal in some cases.. Get the first one
+            slice.(1, .by = cod_postal) |> 
+            as.data.table()
+
+
+#-------- GET EINFORMA COMPANIES BY DISTRICT_CODE 
+#----- DUNS
+tic()
+einforma_dir <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/eInforma_Duns/' 
+duns_2021    <- 'VW_Bisnode_spain__202203311519.csv'
+
+#--- Select just some fields of each  - merge and calculate based on those fields.
+# tic()
+# kk <- fread(paste(einforma_dir, duns_2021, sep = ""), nThread = 4)
+# toc(func.toc = toc.outmsg)
+# # 39.273 sec elapsed
+
+tic()
+dat2021 <- fread(
+                 paste(einforma_dir, duns_2021, sep = ""),
+                 select = c('National_Identification_Number','Employees_Total',
+                            'Postal_Code_for_Street_Address'),
+                 nThread = 4 )
+toc(func.toc = toc.outmsg)
+# 4.02 sec elapsed
+
+tic()
+dat2021red <- dat2021 %>% 
+  clean_names() %>%
+  filter.(national_identification_number != "") %>%
+  filter.( employees_total > 20 & employees_total < 100) %>%
+  # filter.( employees_total > 20 ) %>%
+  select.( postal_code_for_street_address, employees_total ) |> 
+  rename.( distrito_postal     = postal_code_for_street_address) %>%
+  # Companies bigger than 10 employees.
+  mutate.( num_companies = n.(), .by = distrito_postal) |>  
+  #-- Get just the needed variables - distrito_postal, num_companies
+  select.( distrito_postal, num_companies) |>  
+  distinct.() |> 
+  filter.(!is.na(distrito_postal)) |> 
+  arrange.(-num_companies) |> 
+  as.data.table()
+toc(func.toc = toc.outmsg)
+# 0.579 sec elapsed
+# rm(dat2021)
+
+# #-- Small chart to see distribution of number of companies by postal code.
+# dat2021red |>  
+#   ggplot(aes(fct_reorder(as.factor(distrito_postal), -num_companies), num_companies)) +
+#   geom_line( group = 1 ) + 
+#   theme_bw()
+#---------- END OF FILE ----------------
+
+#---------- MERGING GIS + NUM_COMPANIES -------
+gisdat <- merge(
+  gistmp, dat2021red,
+  by.x  = c("cod_postal"), by.y = c("distrito_postal"),
+  all.x = TRUE,
+  sort  = FALSE
+) |> 
+  # Some cod_postal has no companies, change NA to 0.
+  mutate.(num_companies = ifelse.(is.na(num_companies), 0, num_companies)) |> 
+  arrange.(-num_companies) |>  
+  as.data.table()
+
+# #-- Small chart to see distribution of number of companies by postal code.
+# gisdat |>
+#   ggplot(aes(fct_reorder(as.factor(cod_postal), -num_companies), num_companies)) +
+#   geom_line( group = 1 ) +
+#   geom_hline(yintercept = 0) +
+#   theme_minimal()
+  
+# #---- cod_postal in GIS are repeated un many cases.. !!!.
+# gistmp |> 
+#   mutate.(num_cod = n.(), .by = cod_postal) |> 
+#   filter.(num_cod > 1) |> 
+#   arrange.(-num_cod) |> 
+#   as.data.table()
+# #-- In 7001 - BALEARES is repeated 30 times... 30 different long/lat..
+# #-- Put filter in the gistdat file to remove the duplicates.
 
 #---------- PROCESSING ---------------
 # #-- Let's solve a particular case "A_CORUNA"
