@@ -65,7 +65,7 @@ fte_dat <- read_excel(filedir, skip = 3 ) %>%
   as.data.table()
 
 
-#-------- GET DELEGATION and THEIR DISTRIC_CODE
+#-------- GET DELEGATION and THEIR DISTRICT_CODE
 #----- Staffing Structure.
 red_dir     <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Estructura/' 
 file_struct <- 'Red Staffing 2022.xlsx'
@@ -97,6 +97,7 @@ dele_red <- dele_dt %>%
   as.data.table()
 
 
+
 #---------- MERGE FTE + DISTRICT CODE
 ftecp <- merge(
   fte_dat, dele_red,
@@ -107,6 +108,7 @@ ftecp <- merge(
   rename.(provincia = PROVINCIA) %>%
   mutate.(provincia = stri_trans_toupper(provincia)) |> 
   as.data.table()
+
 
 # #-- check
 # # Is there a salesperson assigned to two district_codes ?
@@ -156,6 +158,7 @@ ftecp <- merge(
 # # 9 BADAJOZ          13
 # # 10 CUENCA           0
 
+
 #----- COMERCIAL - PROVINCIA - DISTRITO_POSTAL_DELE
 library(abbreviate)
 fteprovcp <- ftecp |> 
@@ -179,6 +182,31 @@ fteprovcp <- ftecp |>
 # 266:     LOPEZ CIRCUJANO,ALEJANDRO     MURCIA              30800
 # 267:     LOPEZ CIRCUJANO,ALEJANDRO     MÁLAGA              29007
 # 268:     LOPEZ CIRCUJANO,ALEJANDRO    BADAJOZ               6002
+
+
+#----- CHANGE DISTRICT_CODE FOR CASES WHERE ALL DELEGATIONS ARE IN THE SAME DISTRICT_CODE
+#----- LIKE MADRID - BARCELONA ... (¿Sevilla?)
+#----- Staffing Structure.
+red_dir       <- '/Users/carlosortega/Documents/00_Adecco/Para_J/01_Input_raw/Estructura/' 
+file_terri    <- 'CP Territorios.xlsx'
+filedirterri  <- paste(red_dir,file_terri, sep = "")
+dat_terri     <- read_excel(filedirterri, sheet = "Copia_Maestro_CP" ) |> 
+                 clean_names() |> 
+                 as.data.table()
+#-- For each delegation calculate which is the "mode" of the "cp". 
+datterri_ext <- dat_terri |> 
+                select.(provincia, delegacion, cp) |> 
+                filter.(!is.na(provincia)) |> 
+                filter.(!is.na(delegacion)) |> 
+                mutate.(num_cp = n.(), .by = c(delegacion, cp)) |> 
+                arrange.(delegacion, -num_cp) |> 
+                slice.(n = 1, .by = delegacion) |> 
+                as.data.table()
+# Sevilla is one of the cases with many delegations in the same address.
+# But we do not have all the details about "Sevilla Sur" delegation,
+# so I cannot infer which is the right district_code for it.                
+
+
 
 #--- Save intermediate file - Sales people and province and postal code delegation.
 fwrite(
@@ -222,8 +250,8 @@ tic()
 dat2021red <- dat2021 %>% 
   clean_names() %>%
   filter.(national_identification_number != "") %>%
-  filter.( employees_total > 20 & employees_total < 100) %>%
-  # filter.( employees_total > 20 ) %>%
+  # filter.( employees_total > 20 & employees_total < 100) %>%
+  filter.( employees_total > 20 ) %>%
   select.( postal_code_for_street_address, employees_total ) |> 
   rename.( distrito_postal     = postal_code_for_street_address) %>%
   # Companies bigger than 10 employees.
