@@ -88,6 +88,13 @@ for (i in 1:length(dir_list)) {
   provlonlat <- rbind(provlonlat, to_save)
 }
 
+#-- There are duplicates... remove them by getting the first one. 
+provlonlat %<>% 
+  arrange.(provincia, cod_postal) |> 
+  slice.(n = 1, .by = cod_postal) |> 
+  as.data.table()
+
+
 #-- Save file with everything
 fwrite(
   provlonlat,
