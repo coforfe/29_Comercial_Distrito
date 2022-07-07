@@ -343,5 +343,5 @@ gisdatend |>
   as.data.table()
 
 tend <- Sys.time(); tend - tini
-# Time difference of 8.720102 secs
+# Time difference of 15.26205 secs
 #----------------- END OF FILE -----------
