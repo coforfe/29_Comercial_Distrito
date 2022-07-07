@@ -338,6 +338,7 @@ gisdatend |>
 gisdatend |> 
   mutate.(tot_cp = n.(), .by = cod_postal) |> 
   select.(cod_postal, tot_cp) |> 
+  filter.(tot_cp > 1) |> 
   arrange.(-tot_cp) |> 
   as.data.table()
 
