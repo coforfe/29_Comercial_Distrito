@@ -127,6 +127,7 @@ fteprovcp <- ftecp |>
   as.data.table()
 
 
+
 #----- CHANGE DISTRICT_CODE FOR CASES WHERE ALL DELEGATIONS ARE IN THE SAME DISTRICT_CODE
 #----- LIKE MADRID - BARCELONA ... (¿Sevilla?)
 #----- Staffing Structure.
@@ -244,10 +245,10 @@ gisdatcase <- gisdat |>
 #-- The dataframe with the companies (gisdat) is sorted from high number 
 #-- of companies to low number of companies.
 #-- Let's automate that.
-salespeople <- fteprovcase |> 
+salespeople      <- fteprovcase |> 
   select.(nombre_comercial) |> 
   pull.(nombre_comercial)
-salespeople_rev <- rev(salespeople)
+salespeople_rev  <- rev(salespeople)
 salespeople_both <- c(salespeople, salespeople_rev)
 
 #-- Assignment
@@ -269,7 +270,7 @@ prov_val <- fteprovcptmp |>
   distinct.() |> 
   pull.(provincia)
 
-gisdatend <- data.table()
+gisdattmp <- data.table()
 for (i in 1:length(prov_val)) {
    prov_tmp <- prov_val[i]
    print(c(i, length(prov_val), prov_tmp))
@@ -296,9 +297,33 @@ for (i in 1:length(prov_val)) {
      mutate.( sales_assigned = salespeople_rep) |> 
      as.data.table()
    
-   gisdatend <- rbind(gisdatend, gisdatcase_ass)
+   gisdattmp <- rbind(gisdattmp, gisdatcase_ass)
    
 } #for (i in 1:l
+
+#-- Clean gisdatend and add new columns sales_id to join afterwards to DT_SUR
+sales_id <- ftecp |> 
+  select.(nombre_comercial, id_comercial, puesto, es_investment) |> 
+  distinct.() |> 
+  as.data.table()
+
+gisdatend <- merge(
+  gisdattmp, sales_id,
+  by.x = c('sales_assigned'), by.y = c('nombre_comercial'),
+  sort = FALSE
+) |> 
+  select.(-centroide_longitud, -centroide_latitud) |> 
+  relocate.(cod_postal, .before = sales_assigned) |> 
+  as.data.table()
+  
+#--- Save intermediate file - Sales people and province and postal code delegation.
+fwrite(
+  gisdatend, 
+  file = "./output/DT_SUR_SalesPeople_Province_District_Position.csv",
+  encoding = "UTF-8",
+  sep = "|"
+)
+
 
 #--- checks
 #-- Companies by salespeople
@@ -315,3 +340,7 @@ gisdatend |>
   select.(cod_postal, tot_cp) |> 
   arrange.(-tot_cp) |> 
   as.data.table()
+
+tend <- Sys.time(); tend - tini
+# Time difference of 8.720102 secs
+#----------------- END OF FILE -----------
