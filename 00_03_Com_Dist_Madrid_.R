@@ -110,9 +110,9 @@ ftecp <- merge(
   as.data.table()
 
 
-#----- DT - COMERCIAL - PROVINCIA - DISTRITO_POSTAL_DELE
+#----- DT - NOMBRE_DELEGACION - COMERCIAL - PROVINCIA - DISTRITO_POSTAL_DELE
 fteprovcp <- ftecp |> 
-  select.(dop,nombre_comercial, provincia, codigo_postal_dele, puesto, es_investment) |> 
+  select.(dop,nombre_delegacion, nombre_comercial, provincia, codigo_postal_dele, puesto, es_investment) |> 
   distinct.() |> 
   # Modify provinces to match coordinates files
   mutate.(provincia = stri_replace_all_fixed(
@@ -123,6 +123,7 @@ fteprovcp <- ftecp |>
   )
   ) |> 
   mutate.(provincia = stri_replace_all_fixed(provincia, c("PALMA_DE_MALLORCA"), c("BALEARES"))) |> 
+  mutate.(nombre_delegacion = stri_trans_toupper(nombre_delegacion)) %>%
   arrange.(provincia, puesto) |> 
   as.data.table()
 
@@ -181,6 +182,19 @@ delesgod <- merge(
   arrange.(nombre_delegacion) |> 
   mutate.( cp_new = ifelse.(is.na(cp), codigo_postal_dele, cp) ) |> 
   mutate.( provincia = ifelse(is.na(provincia), "Madrid", provincia)) |> 
+  #--- Get just the center of Madrid
+  filter.(nombre_delegacion != "ARANJUEZ") %>%
+  filter.(nombre_delegacion != "ARGANDA") %>%
+  filter.(!(nombre_delegacion %like% "SEBASTIAN")) %>%
+  filter.(!(nombre_delegacion %like% "ALCALA")) %>%
+  filter.(!(nombre_delegacion %like% "ALCORCON")) %>%
+  filter.(!(nombre_delegacion %like% "FUENLABRADA")) %>%
+  filter.(!(nombre_delegacion %like% "GETAFE")) %>%
+  filter.(!(nombre_delegacion %like% "TORREJON")) %>%
+  filter.(!(nombre_delegacion %like% "TRES CANTOS")) %>%
+  filter.(!(nombre_delegacion %like% "ROZ")) %>%
+  filter.(!(nombre_delegacion %like% "MAJ")) %>%
+  filter.(!(nombre_delegacion %like% "ALC")) %>%
   as.data.table()  
 
 toc(func.toc = toc.outmsg)
@@ -269,31 +283,32 @@ madgis <- merge(
   mutate.(name_dele = ifelse.(is.na(name_dele), "no", name_dele)) |> 
   as.data.table()
 
-#---- Let's chart to see deles and the rest of postal codes.
-library(rayshader)
-mad_gr <-  ggplot(madgis, aes(x = centroide_longitud, y = centroide_latitud, 
-             label = nombre_delegacion)) +
-  geom_point(aes(color = nombre_delegacion, size = num_companies)) +
-  # geom_label_repel(size = 2) +
-  theme_minimal() +
-  easy_legend_at( to = c('none'))
-print(mad_gr)
-plot_gg(mad_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
+# #---- Let's chart to see deles and the rest of postal codes.
+# library(rayshader)
+# mad_gr <-  ggplot(madgis, aes(x = centroide_longitud, y = centroide_latitud, 
+#              label = nombre_delegacion)) +
+#   geom_point(aes(color = nombre_delegacion, size = num_companies)) +
+#   # geom_label_repel(size = 2) +
+#   theme_minimal() +
+#   easy_legend_at( to = c('none'))
+# print(mad_gr)
+# plot_gg(mad_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
 
 
 #-------------------------------------------------------
-#----- CONCENTRATE IN "DT SUR" ----------
+#----- CONCENTRATE IN "DT CENTRO - MADRID CENTRO" ------
 fteprovcptmp <- fteprovcp |> 
-  filter.(dop == "DT SUR") |> 
+  filter.(dop == "DT CENTRO CANARIAS") |> 
   as.data.table()
 
-#-- Case ALMERIA
+#-- Case MADRID AND SELECT JUST THE COMMERCIALS FROM "delesgod".
 fteprovcase <- fteprovcptmp |>  
-  filter.(provincia == "ALMERIA") |> 
+  filter.(provincia == "MADRID") |> 
+  filter.(nombre_delegacion %chin% (delesgod  %>% select.(nombre_delegacion) %>% pull.(nombre_delegacion) )) %>%
   as.data.table()
 
-gisdatcase <- gisdat |> 
-  filter.(provincia == "ALMERIA") |> 
+gisdatcase <- madgis |> 
+  filter.(provincia == "MADRID") |> 
   #-- Remove cod_postal without companies
   filter.(num_companies != 0) |>  
   as.data.table()
@@ -311,6 +326,8 @@ gisdatcase <- gisdat |>
 #-- Let's automate that.
 salespeople      <- fteprovcase |> 
   select.(nombre_comercial) |> 
+  # just in case a salespeople is repeated.
+  distinct.() %>%
   pull.(nombre_comercial)
 salespeople_rev  <- rev(salespeople)
 salespeople_both <- c(salespeople, salespeople_rev)
@@ -322,68 +339,10 @@ gisdatcase_ass <- gisdatcase |>
   as.data.table()
 
 
-#----- Same as before but automating by province (from "fteprovcptmp").
-#----- CONCENTRATE IN "DT SUR" ----------
-fteprovcptmp <- fteprovcp |> 
-  filter.(dop == "DT SUR") |> 
-  as.data.table()
-
-# Get provinces.
-prov_val <- fteprovcptmp |> 
-  select.(provincia) |> 
-  distinct.() |> 
-  pull.(provincia)
-
-gisdattmp <- data.table()
-for (i in 1:length(prov_val)) {
-  prov_tmp <- prov_val[i]
-  print(c(i, length(prov_val), prov_tmp))
-  
-  fteprovcase <- fteprovcptmp |>  
-    filter.(provincia == prov_tmp) |> 
-    as.data.table()
-  
-  gisdatcase <- gisdat |> 
-    filter.(provincia == prov_tmp) |> 
-    #-- Remove cod_postal without companies
-    filter.(num_companies != 0) |>  
-    as.data.table()
-  
-  salespeople <- fteprovcase |> 
-    select.(nombre_comercial) |> 
-    pull.(nombre_comercial)
-  salespeople_rev <- rev(salespeople)
-  salespeople_both <- c(salespeople, salespeople_rev)
-  
-  #-- Assignment
-  salespeople_rep <- rep(salespeople_both, length.out = nrow(gisdatcase))
-  gisdatcase_ass <- gisdatcase |> 
-    mutate.( sales_assigned = salespeople_rep) |> 
-    as.data.table()
-  
-  gisdattmp <- rbind(gisdattmp, gisdatcase_ass)
-  
-} #for (i in 1:l
-
-#-- Clean gisdatend and add new columns sales_id to join afterwards to DT_SUR
-sales_id <- ftecp |> 
-  select.(nombre_comercial, id_comercial, puesto, es_investment) |> 
-  distinct.() |> 
-  as.data.table()
-
-gisdatend <- merge(
-  gisdattmp, sales_id,
-  by.x = c('sales_assigned'), by.y = c('nombre_comercial'),
-  sort = FALSE
-) |> 
-  select.(-centroide_longitud, -centroide_latitud) |> 
-  relocate.(cod_postal, .before = sales_assigned) |> 
-  as.data.table()
-
 #--- Save intermediate file - Sales people and province and postal code delegation.
 fwrite(
-  gisdatend, 
-  file = "./output/DT_SUR_SalesPeople_Province_District_Position.csv",
+  gisdatcase_ass, 
+  file = "./output/MADRID_CENTRO_SalesPeople_Province_District_Position.csv",
   encoding = "UTF-8",
   sep = "|"
 )
@@ -391,6 +350,7 @@ fwrite(
 
 #--- checks
 #-- Companies by salespeople
+gisdatend <- copy(gisdatcase_ass)
 gisdatend |> 
   mutate.(tot_compa = sum(num_companies), .by = sales_assigned) |> 
   select.(sales_assigned, tot_compa) |> 
@@ -407,5 +367,5 @@ gisdatend |>
   as.data.table()
 
 tend <- Sys.time(); tend - tini
-# Time difference of 15.26205 secs
+# Time difference of 14.42478 secs
 #----------------- END OF FILE -----------
