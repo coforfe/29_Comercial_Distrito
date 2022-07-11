@@ -147,9 +147,6 @@ datterri_ext <- dat_terri |>
   arrange.(delegacion, -num_cp) |> 
   slice.(n = 1, .by = delegacion) |> 
   as.data.table()
-# Sevilla is one of the cases with many delegations in the same address.
-# But we do not have all the details about "Sevilla Sur" delegation,
-# so I cannot infer which is the right district_code for it.                
 
 #----- FOR MADRID ----------
 #-- Deles from the two sources.
@@ -281,17 +278,43 @@ madgis <- merge(
   sort = FALSE
 ) |> 
   mutate.(name_dele = ifelse.(is.na(name_dele), "no", name_dele)) |> 
+  #--- Get centroid of all deles Madrid_Center
+  mutate.(center = ifelse.(name_dele == "no", "out", "in")) %>%
+  mutate.(avg_longi = mean(centroide_longitud), .by = center) %>%
+  mutate.(avg_lati  = mean(centroide_latitud),  .by = center) %>%
+  mutate.(yesno_longi = ifelse.(center == "in", avg_longi, NA )) %>% 
+  mutate.(yesno_lati  = ifelse.(center == "in", avg_lati, NA )) %>% 
+  mutate.(long_center = mean(yesno_longi, na.rm = TRUE)) %>%
+  mutate.(lati_center = mean(yesno_lati, na.rm = TRUE)) %>%
+  mutate.(dist = sqrt((centroide_longitud - long_center)^2 + (centroide_latitud - lati_center)^2)) %>%
+  # Select this value of "0.090" by trial and error, seeing the following charts.
+  mutate.( toget = ifelse.(dist < 0.090, "yes", "no")) %>%
   as.data.table()
 
-# #---- Let's chart to see deles and the rest of postal codes.
+
+
+#-------- CHARTS TO SELECT RATIO OF INFLUENCE FOR CENTER DELEGATIONS -----
+#---- Let's chart to see deles and the rest of postal codes.
+# kk <- madgis %>% filter.(dist == max(dist)) %>% as.data.table() %>% mutate.(nombre_delegacion = "KK")
+# madgis <- rbind(madgis, kk)
 # library(rayshader)
-# mad_gr <-  ggplot(madgis, aes(x = centroide_longitud, y = centroide_latitud, 
-#              label = nombre_delegacion)) +
-#   geom_point(aes(color = nombre_delegacion, size = num_companies)) +
-#   # geom_label_repel(size = 2) +
-#   theme_minimal() +
-#   easy_legend_at( to = c('none'))
-# print(mad_gr)
+mad_gr <-  ggplot(madgis, aes(x = centroide_longitud, y = centroide_latitud,
+             label = name_dele)) +
+  geom_point(aes(color = nombre_delegacion, size = num_companies)) +
+  coord_fixed() +
+  labs( title = "CENTER DELEGATIONS") +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+print(mad_gr)
+
+get_gr <-  ggplot(madgis, aes(x = centroide_longitud, y = centroide_latitud,
+                              label = name_dele)) +
+  geom_point(aes(color = toget, size = num_companies)) +
+  coord_fixed() +
+  labs( title = "CLOSEST DISTRICTS TO CENTER DELEGATIONS") +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+print(get_gr)
 # plot_gg(mad_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
 
 
@@ -311,6 +334,10 @@ gisdatcase <- madgis |>
   filter.(provincia == "MADRID") |> 
   #-- Remove cod_postal without companies
   filter.(num_companies != 0) |>  
+  #-- Select just the districts closer to "center" delegation.
+  filter.(toget == "yes") %>%
+  #--- Select just the needed columns
+  select.(cod_postal, provincia, num_companies, nombre_delegacion, name_dele) %>%
   as.data.table()
 
 #-- To assign salespeople to cod_postal 
@@ -336,12 +363,31 @@ salespeople_both <- c(salespeople, salespeople_rev)
 salespeople_rep <- rep(salespeople_both, length.out = nrow(gisdatcase))
 gisdatcase_ass <- gisdatcase |> 
   mutate.( sales_assigned = salespeople_rep) |> 
+  relocate.(sales_assigned, .before = provincia) %>%
   as.data.table()
 
 
+#-- Clean gisdatend and add new columns sales_id to join afterwards to sales Madrid. 
+sales_id <- ftecp |> 
+  select.(nombre_comercial, id_comercial, puesto, es_investment) |> 
+  distinct.() |> 
+  as.data.table()
+
+gisdatend <- merge(
+  gisdatcase_ass, sales_id,
+  by.x = c('sales_assigned'), by.y = c('nombre_comercial'),
+  sort = FALSE
+) |> 
+  relocate.(cod_postal, .before = sales_assigned) |> 
+  relocate.(id_comercial, .before = nombre_delegacion) %>%
+  relocate.(puesto, .before = nombre_delegacion) %>%
+  relocate.(es_investment, .before = nombre_delegacion) %>%
+  select.(-nombre_delegacion, -name_dele) %>%
+  as.data.table()
+
 #--- Save intermediate file - Sales people and province and postal code delegation.
 fwrite(
-  gisdatcase_ass, 
+  gisdatend, 
   file = "./output/MADRID_CENTRO_SalesPeople_Province_District_Position.csv",
   encoding = "UTF-8",
   sep = "|"
@@ -367,5 +413,5 @@ gisdatend |>
   as.data.table()
 
 tend <- Sys.time(); tend - tini
-# Time difference of 14.42478 secs
+# Time difference of 15.16358 secs
 #----------------- END OF FILE -----------
