@@ -356,7 +356,30 @@ south_gr <-  ggplot(allsouth, aes(x = centroide_longitud, y = centroide_latitud,
   geom_point(aes(color = provincia, size = num_companies)) +
   coord_fixed() +
   # facet_wrap( ~ provincia) +
-  labs( title = "ANDALUCIA - EXTREMADURA -MURCIA") +
+  labs( title = "ANDALUCIA - EXTREMADURA - MURCIA") +
   theme_bw() +
   easy_legend_at( to = c('none'))
 print(south_gr)
+
+library(rayshader)
+gg = ggplot(diamonds, aes(x, depth)) +
+  stat_density_2d(aes(fill = stat(nlevel)), 
+                  geom = "polygon",
+                  n = 100,bins = 10,contour = TRUE) +
+  facet_wrap(clarity~.) +
+  scale_fill_viridis_c(option = "A")
+plot_gg(gg,multicore=TRUE,width=5,height=5,scale=250)
+
+library(rayshader)
+south_gr <-  ggplot(allsouth, aes(x = centroide_longitud, y = centroide_latitud,
+                                  label = provincia)) +
+  geom_point(aes(color = provincia, size = num_companies)) +
+  coord_fixed() +
+  stat_density_2d(aes(fill = stat(nlevel)),
+                   geom = "polygon",
+                   n = 100, bins = 10, contour = TRUE) +
+  labs( title = "ANDALUCIA - EXTREMADURA - MURCIA") +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+plot_gg(south_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
+
