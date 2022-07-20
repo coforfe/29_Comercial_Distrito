@@ -345,3 +345,18 @@ gisdatend |>
 tend <- Sys.time(); tend - tini
 # Time difference of 15.26205 secs
 #----------------- END OF FILE -----------
+
+#-- Map of the whole south.
+allsouth <- gisdat %>%
+  filter.( provincia %chin% prov_val) %>%
+  as.data.table()
+
+south_gr <-  ggplot(allsouth, aes(x = centroide_longitud, y = centroide_latitud,
+                              label = provincia)) +
+  geom_point(aes(color = provincia, size = num_companies)) +
+  coord_fixed() +
+  # facet_wrap( ~ provincia) +
+  labs( title = "ANDALUCIA - EXTREMADURA -MURCIA") +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+print(south_gr)
