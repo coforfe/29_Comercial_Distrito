@@ -312,7 +312,7 @@ gisdatend <- merge(
   by.x = c('sales_assigned'), by.y = c('nombre_comercial'),
   sort = FALSE
 ) |> 
-  select.(-centroide_longitud, -centroide_latitud) |> 
+  # select.(-centroide_longitud, -centroide_latitud) |> 
   relocate.(cod_postal, .before = sales_assigned) |> 
   as.data.table()
   
@@ -348,7 +348,8 @@ tend <- Sys.time(); tend - tini
 
 #-- Map of the whole south.
 allsouth <- gisdat %>%
-  filter.( provincia %chin% prov_val) %>%
+  # filter.( provincia %chin% prov_val) %>%
+  filter.( provincia == "GRANADA" ) %>%
   as.data.table()
 
 south_gr <-  ggplot(allsouth, aes(x = centroide_longitud, y = centroide_latitud,
@@ -356,7 +357,8 @@ south_gr <-  ggplot(allsouth, aes(x = centroide_longitud, y = centroide_latitud,
   geom_point(aes(color = provincia, size = num_companies)) +
   coord_fixed() +
   # facet_wrap( ~ provincia) +
-  labs( title = "ANDALUCIA - EXTREMADURA - MURCIA") +
+  # labs( title = "ANDALUCIA - EXTREMADURA - MURCIA") +
+  labs( title = "GRANADA") +
   theme_bw() +
   easy_legend_at( to = c('none'))
 print(south_gr)
@@ -385,3 +387,41 @@ plot_gg(south_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
 library(rgl)
 rglwidget()
 
+
+
+#----------- MAP WITH COLOR BY SALESPEOPLE -----------
+library(abbreviate)
+prov_val <- "SEVILLA"
+# dat_prov <- gisdatend %>%
+#   filter.(provincia == prov_val) %>%
+#   as.data.table()
+
+dat_prov <- gisdatend %>%
+  filter.(provincia == prov_val) %>%
+  mutate.(sales_new = abbreviate_text(sales_assigned)) %>%
+  as.data.table()
+  
+  
+ggplot( dat_prov, aes(x = centroide_longitud, y = centroide_latitud )) +
+  geom_point(aes(color = sales_new, size = num_companies)) +
+  coord_fixed() +
+  labs( title = prov_val ) +
+  facet_wrap(~ sales_new) +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+
+ 
+library(rayshader)
+prov_gr <- ggplot( dat_prov, aes(x = centroide_longitud, y = centroide_latitud )) +
+  geom_point(aes(color = sales_new, size = num_companies)) +
+  coord_fixed() +
+  labs( title = prov_val ) +
+  stat_density_2d(aes(fill = stat(nlevel), alpha = 0.5),
+                  geom = "polygon",
+                  n = 100, bins = 30, contour = TRUE) +
+  facet_wrap(~ sales_new) +
+  theme_bw() +
+  easy_legend_at( to = c('none'))
+plot_gg(prov_gr, multicore = TRUE, width = 5, height = 5, scale = 250)
+library(rgl)
+rglwidget()
